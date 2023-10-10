@@ -347,14 +347,17 @@ def valid_fn(*, net, val_loader, devices):
 
             label = data[1].type(torch.FloatTensor).to(devices[0])
 
-            # y_pred, _, _ = net(image, True)
-            y_pred, _, _ = net(image)
-            # y_pred = net(image)
-            y_pred = y_pred.cpu()
+            y1, y2, y3, y3 = net(image, gender)
+            y1 = y1.argmax(dim=1).cpu()
+            y2 = y2.argmax(dim=1).cpu()
+            y3 = y3.argmax(dim=1).cpu()
+            y4 = y4.argmax(dim=1).cpu()
+            y_pred = (y1 + y2 + y3 + y4)/4
             label = label.cpu()
-            y_pred = y_pred * boneage_div + boneage_mean
+            
+            # y_pred = y_pred * boneage_div + boneage_mean
             # y_pred_loss = y_pred.argmax(axis=1)
-            y_pred = y_pred.squeeze()
+            # y_pred = y_pred.squeeze()
             print(f"y_pred is\n{torch.round(y_pred)}\nlabel is\n{label}")
 
             batch_loss = loss_fn(y_pred, label).item()
