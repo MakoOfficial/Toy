@@ -95,7 +95,7 @@ def read_image(file_path, image_size=512):
     padding = (delta_w // 2, delta_h // 2, delta_w - (delta_w // 2), delta_h - (delta_h // 2))
     return np.array(ImageOps.expand(img, padding).convert("RGB"))
 
-def split_data(data_dir, csv_name, category_num, split_ratio, aug_num):
+def split_data(data_dir, csv_name, category_num, split_ratio):
     """restruct the dataset"""
     age_df = pd.read_csv(os.path.join(data_dir, csv_name))
     age_df['path'] = age_df['id'].map(lambda x: os.path.join(data_dir,
@@ -208,7 +208,8 @@ def try_gpu(i=0):
     return torch.device('cpu')
 
 
-def train_fn(net, train_dataset, valid_dataset, num_epochs, lr, wd, lr_period, lr_decay, alpha, beta, gamma, lambd, batch_size=32, model_path="./model.pth", record_path="./RECORD.csv"):
+def train_fn(net, train_dataset, valid_dataset, num_epochs, lr, wd, lr_period, lr_decay,  
+             batch_size=32, model_path="./model.pth", record_path="./RECORD.csv"):
     """start training the net"""
     # record outputs of every epoch
     record = [['epoch', 'training loss', 'val loss', 'lr']]
@@ -354,7 +355,7 @@ def valid_fn(*, net, val_loader, devices):
             y4 = y4.argmax(dim=1).cpu()
             y_pred = (y1 + y2 + y3 + y4)/4
             label = label.cpu()
-            
+
             # y_pred = y_pred * boneage_div + boneage_mean
             # y_pred_loss = y_pred.argmax(axis=1)
             # y_pred = y_pred.squeeze()
@@ -378,26 +379,40 @@ def valid_fn(*, net, val_loader, devices):
 
 
 if __name__ == '__main__':
-    lr = 1e-3
+    lr = 5e-4
     # batch_size = 32
     batch_size = 8
     num_epochs = 50
     weight_decay = 0
     lr_period = 10
     lr_decay = 0.5
-    M = 4
-    alpha = 1
-    beta = 1
-    gamma = 1
-    lambd = 1
 
-    net = get_net()
+
+    net = get_net().to("cuda")
     # bone_dir = os.path.join('..', 'data', 'archive', 'testDataset')
     bone_dir = "../archive"
     csv_name = "boneage-training-dataset.csv"
     
-    # male_train_df, male_valid_df, female_train_df, female_valid_df = split_data(bone_dir, csv_name, 20, 0.1, 8)
-    # train_set, val_set = create_data_loader(male_train_df, male_valid_df)
-    # torch.set_default_tensor_type('torch.FloatTensor')
-
-    # train_fn(net=net, train_dataset=train_set, valid_dataset=val_set, num_epochs=num_epochs, lr=lr, wd=weight_decay, lr_period=lr_period, lr_decay=lr_decay, alpha=alpha, beta=beta, gamma=gamma, lambd=lambd, batch_size=batch_size, model_path="model_res.pth", record_path="RECORD_res.csv")
+    male_train_df, male_valid_df, female_train_df, female_valid_df = split_data(bone_dir, csv_name, 20, 0.1)
+    train_set, val_set = create_data_loader(male_train_df, male_valid_df)
+    torch.set_default_tensor_type('torch.FloatTensor')
+    
+    idx = range(200)
+    sub_train, sub_valid = torch.utils.data.Subset(train_set, idx), torch.utils.data.Subset(val_set, idx)
+    train_loader = torch.utils.data.DataLoader(
+        sub_train,
+        batch_size=8,
+        shuffle=True,
+        drop_last=True)
+    valid_loader = torch.utils.data.DataLoader(
+        sub_valid,
+        batch_size=8,
+        shuffle=True,
+        drop_last=True)
+    
+    for idx, data in enumerate(train_loader):
+        image, gender = data[0]
+        image, gender = image.type(torch.cuda.FloatTensor), gender.type(torch.cuda.FloatTensor)
+        net.Prototype_Initialization(image)
+    train_fn(net=net, train_dataset=sub_train, valid_dataset=sub_valid, num_epochs=num_epochs, lr=lr, wd=weight_decay, lr_period=lr_period,
+             lr_decay=lr_decay, batch_size=20)

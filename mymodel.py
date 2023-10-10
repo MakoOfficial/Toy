@@ -55,11 +55,12 @@ class MMCA_module(nn.Module):
         return (1 - x), (input - input * x)
         # return (input - input * x)
         
-class depthwise_separable_conv(nn.Module):
-    def init(self, nin, nout, stride=2, kernel_size=3, padding=1):
-        super(depthwise_separable_conv, self).init()
-        self.depthwise = nn.Conv2d(nin, nin, stride=stride, kernel_size=kernel_size, padding=padding, groups=nin)
-        self.pointwise = nn.Conv2d(nin, nout, kernel_size=1)
+class DW_conv(nn.Module):
+    def __init__(self, nin, nout, stride=2, kernel_size=3, padding=1) -> None:
+        super().__init__()
+        self.depthwise = nn.Conv2d(in_channels=nin, out_channels=nin, kernel_size=kernel_size, stride=stride, padding=padding, groups=nin, )
+        self.pointwise = nn.Conv2d(in_channels=nin, out_channels=nout, kernel_size=1)
+
     def forward(self, x):
         out = self.depthwise(x)
         out = self.pointwise(out)
@@ -67,7 +68,7 @@ class depthwise_separable_conv(nn.Module):
 
 
 class KMEANS:
-    def __init__(self, n_clusters=20, max_iter=None, verbose=True,device = torch.device("cpu")):
+    def __init__(self, n_clusters=20, max_iter=None, verbose=True,device = torch.device("cuda")):
         """the implement of K-Meas"""
         self.n_cluster = n_clusters
         self.n_clusters = n_clusters
@@ -161,7 +162,7 @@ class Multi_Sacle_Fusion(nn.Module):
         )
         # 512
         self.fusion2_DW = nn.Sequential(
-            depthwise_separable_conv(256, 512, stride=2, kernel_size=3, padding=1),
+            DW_conv(256, 512, stride=2, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),
             nn.ReLU()
         )
@@ -179,12 +180,12 @@ class Multi_Sacle_Fusion(nn.Module):
         )
         # 1024
         self.fusion3_DW1 = nn.Sequential(
-            depthwise_separable_conv(256, 1024, stride=4, kernel_size=5, padding=2),
+            DW_conv(256, 1024, stride=4, kernel_size=5, padding=2),
             nn.BatchNorm2d(1024),
             nn.ReLU()
         )
         self.fusion3_DW2 = nn.Sequential(
-            depthwise_separable_conv(512, 1024, stride=2, kernel_size=3, padding=1),
+            DW_conv(512, 1024, stride=2, kernel_size=3, padding=1),
             nn.BatchNorm2d(1024),
             nn.ReLU()
         )
@@ -196,17 +197,17 @@ class Multi_Sacle_Fusion(nn.Module):
         )
         # 2048
         self.fusion4_DW1 = nn.Sequential(
-            depthwise_separable_conv(256, 2048, stride=8, kernel_size=9, padding=4),
+            DW_conv(256, 2048, stride=8, kernel_size=9, padding=4),
             nn.BatchNorm2d(2048),
             nn.ReLU()
             )
         self.fusion4_DW2 = nn.Sequential(
-            depthwise_separable_conv(512, 2048, stride=4, kernel_size=5, padding=2),
+            DW_conv(512, 2048, stride=4, kernel_size=5, padding=2),
             nn.BatchNorm2d(2048),
             nn.ReLU()
             )
         self.fusion4_DW3 = nn.Sequential(
-            depthwise_separable_conv(1024, 2048, stride=2, kernel_size=3, padding=1),
+            DW_conv(1024, 2048, stride=2, kernel_size=3, padding=1),
             nn.BatchNorm2d(2048),
             nn.ReLU()
             )
@@ -323,6 +324,7 @@ class Toy(nn.Module):
         # AM2, F2 = self.MMCA2(self.backbone2(x))
         # AM3, F3 = self.MMCA3(self.backbone3(x))
         # AM4, F4 = self.MMCA4(self.backbone4(x))
+        
         feature_map_1 = self.backbone1(image)
         res_repre_1 = self.Residual_Representation(feature_map_1, self.K_means1.centers)
 
@@ -363,3 +365,7 @@ class Toy(nn.Module):
     # 加入微调函数
     def fine_tune(self, need_fine_tune = True):
         self.train(need_fine_tune)
+
+
+if __name__ == '__main__':
+    DW_conv(256, 2048, stride=8, kernel_size=9, padding=4)
