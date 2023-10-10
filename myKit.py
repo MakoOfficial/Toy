@@ -217,12 +217,14 @@ def train_fn(net, train_dataset, valid_dataset, num_epochs, lr, wd, lr_period, l
         writer = csv.writer(csvfile)
         for row in record:
             writer.writerow(row)
-    devices = d2l.try_all_gpus()
+    # devices = d2l.try_all_gpus()
+    device = try_gpu()
 
-    net = nn.DataParallel(net, device_ids=devices)
+    # net = nn.DataParallel(net, device_ids=devices)
 
     ## Network, optimizer, and loss function creation
-    net = net.to(devices[0])
+    # net = net.to(devices[0])
+    net = net.to(device)
     
     # Creates dataloaders, which load data in batches
     # Note: test loader is not shuffled or sampled
@@ -264,12 +266,11 @@ def train_fn(net, train_dataset, valid_dataset, num_epochs, lr, wd, lr_period, l
     module_name =  [
     "module.diversity.9.weight"]
 
-    
     ## Trains
 
     for epoch in range(num_epochs):
-        # net.fine_tune()
-        net.train()
+        net.fine_tune()
+        # net.train()
         print(epoch+1)
         this_record = []
         global training_loss
@@ -282,11 +283,12 @@ def train_fn(net, train_dataset, valid_dataset, num_epochs, lr, wd, lr_period, l
         for batch_idx, data in enumerate(train_loader):
             # #put data to GPU
             image, gender = data[0]
-            image, gender = image.type(torch.FloatTensor).to(devices[0]), gender.type(torch.FloatTensor).to(devices[0])
+            # image, gender = image.type(torch.FloatTensor).to(devices[0]), gender.type(torch.FloatTensor).to(devices[0])
+            image, gender = image.type(torch.FloatTensor).to(device), gender.type(torch.FloatTensor).to(device)
 
             batch_size = len(data[1])
-            label = data[1].to(devices[0])
-
+            # label = data[1].to(devices[0])
+            label = data[1].to(device)
             # zero the parameter gradients
             optimizer.zero_grad()
 
@@ -316,7 +318,7 @@ def train_fn(net, train_dataset, valid_dataset, num_epochs, lr, wd, lr_period, l
 
         ## Evaluation
         # Sets net to eval and no grad context
-        val_total_size, mae_loss = valid_fn(net=net, val_loader=val_loader, devices=devices)
+        val_total_size, mae_loss = valid_fn(net=net, val_loader=val_loader, devices=device)
         # accuracy_num = accuracy(pred_list[1:, :], grand_age[1:])
         
         train_loss, val_mae = training_loss / total_size, mae_loss / val_total_size
@@ -331,7 +333,7 @@ def train_fn(net, train_dataset, valid_dataset, num_epochs, lr, wd, lr_period, l
     torch.save(net, model_path)
 
 
-def valid_fn(*, net, val_loader, devices):
+def valid_fn(*, net, val_loader, device):
     """validate the training result"""
     net.eval()
     global val_total_size
@@ -344,9 +346,11 @@ def valid_fn(*, net, val_loader, devices):
             val_total_size += len(data[1])
 
             image, gender = data[0]
-            image, gender = image.type(torch.FloatTensor).to(devices[0]), gender.type(torch.FloatTensor).to(devices[0])
+            # image, gender = image.type(torch.FloatTensor).to(devices[0]), gender.type(torch.FloatTensor).to(devices[0])
+            image, gender = image.type(torch.FloatTensor).to(device), gender.type(torch.FloatTensor).to(device)
 
-            label = data[1].type(torch.FloatTensor).to(devices[0])
+            # label = data[1].type(torch.FloatTensor).to(devices[0])
+            label = data[1].type(torch.FloatTensor).to(device)
 
             y1, y2, y3, y3 = net(image, gender)
             y1 = y1.argmax(dim=1).cpu()
@@ -388,7 +392,7 @@ if __name__ == '__main__':
     lr_decay = 0.5
 
 
-    net = get_net().to("cuda")
+    net = get_net()
     # bone_dir = os.path.join('..', 'data', 'archive', 'testDataset')
     bone_dir = "../archive"
     csv_name = "boneage-training-dataset.csv"
@@ -397,22 +401,22 @@ if __name__ == '__main__':
     train_set, val_set = create_data_loader(male_train_df, male_valid_df)
     torch.set_default_tensor_type('torch.FloatTensor')
     
-    idx = range(200)
+    idx = range(20)
     sub_train, sub_valid = torch.utils.data.Subset(train_set, idx), torch.utils.data.Subset(val_set, idx)
     train_loader = torch.utils.data.DataLoader(
         sub_train,
-        batch_size=8,
+        batch_size=4,
         shuffle=True,
         drop_last=True)
     valid_loader = torch.utils.data.DataLoader(
         sub_valid,
-        batch_size=8,
+        batch_size=4,
         shuffle=True,
         drop_last=True)
     
     for idx, data in enumerate(train_loader):
         image, gender = data[0]
-        image, gender = image.type(torch.cuda.FloatTensor), gender.type(torch.cuda.FloatTensor)
+        image, gender = image.type(torch.FloatTensor), gender.type(torch.FloatTensor)
         net.Prototype_Initialization(image)
     train_fn(net=net, train_dataset=sub_train, valid_dataset=sub_valid, num_epochs=num_epochs, lr=lr, wd=weight_decay, lr_period=lr_period,
              lr_decay=lr_decay, batch_size=20)

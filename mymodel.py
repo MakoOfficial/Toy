@@ -68,7 +68,7 @@ class DW_conv(nn.Module):
 
 
 class KMEANS:
-    def __init__(self, n_clusters=20, max_iter=None, verbose=True,device = torch.device("cuda")):
+    def __init__(self, n_clusters=20, max_iter=None, verbose=True, device = torch.device("cpu")):
         """the implement of K-Meas"""
         self.n_cluster = n_clusters
         self.n_clusters = n_clusters
@@ -137,6 +137,9 @@ class KMEANS:
     def representative_sample(self):
         # 查找距离中心点最近的样本，作为聚类的代表样本，更加直观
         self.representative_samples = torch.argmin(self.dists, (0))
+
+    def fine_tune(self):
+        self.centers = self.centers.to(torch.device("cuda"))
 
 class Multi_Sacle_Fusion(nn.Module):
     def __init__(self) -> None:
@@ -327,16 +330,16 @@ class Toy(nn.Module):
         
         feature_map_1 = self.backbone1(image)
         res_repre_1 = self.Residual_Representation(feature_map_1, self.K_means1.centers)
-
+        print(feature_map_1.shape)
         feature_map_2 = self.backbone2(feature_map_1)
         res_repre_2 = self.Residual_Representation(feature_map_2, self.K_means2.centers)
-
+        print(feature_map_2.shape)
         feature_map_3 = self.backbone2(feature_map_2)
         res_repre_3 = self.Residual_Representation(feature_map_3, self.K_means3.centers)
-
+        print(feature_map_3.shape)
         feature_map_4 = self.backbone2(feature_map_3)
         res_repre_4 = self.Residual_Representation(feature_map_4, self.K_means4.centers)
-        
+        print(feature_map_4.shape)
         fusion_feature1, fusion_feature2, fusion_feature3, fusion_feature4 = self.MSA(feature_map_1, feature_map_2, feature_map_3, feature_map_4)
         fusion_res1, fusion_res2, fusion_res3, fusion_res4 = self.MSA(res_repre_1, res_repre_2, res_repre_3, res_repre_4)
 
@@ -365,6 +368,11 @@ class Toy(nn.Module):
     # 加入微调函数
     def fine_tune(self, need_fine_tune = True):
         self.train(need_fine_tune)
+        self.K_means1.fine_tune()
+        self.K_means2.fine_tune()
+        self.K_means3.fine_tune()
+        self.K_means4.fine_tune()
+
 
 
 if __name__ == '__main__':
